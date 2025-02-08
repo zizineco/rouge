@@ -675,16 +675,30 @@ export class Game {
     }
   }
 
-  showAttackEffect(x,y){
+  // アニメーションをマップ座標ではなく表示座標に合わせるため、オフセットを計算
+  showAttackEffect(mapX, mapY){
     const frames=[
       {symbol:'!', color:'orange'},
       {symbol:'*', color:'red'},
       {symbol:'!', color:'yellow'}
     ];
     let frame=0;
+
+    // 現在の表示座標へのオフセットを算出
+    const opts = this.display.getOptions();
+    const screenW = opts.width;
+    const screenH = opts.height;
+    const centerX = Math.floor(screenW / 2);
+    const centerY = Math.floor(screenH / 2);
+    const offsetX = centerX - this.player.x;
+    const offsetY = centerY - this.player.y;
+
     const interval=setInterval(()=>{
       if(frame<frames.length){
-        this.display.draw(x,y,frames[frame].symbol,frames[frame].color);
+        // mapX, mapY を表示用に変換
+        const sx = mapX + offsetX;
+        const sy = mapY + offsetY;
+        this.display.draw(sx, sy, frames[frame].symbol, frames[frame].color);
         frame++;
       } else {
         clearInterval(interval);
@@ -719,6 +733,7 @@ export class Game {
     this.attackSound.play().catch(e=>console.error(e));
     const msg=this.enemyDialogues[Math.floor(Math.random()*this.enemyDialogues.length)];
     this.enemySpeak(msg);
+    // 敵がプレイヤーを攻撃するので、アニメーションはプレイヤーの位置に合わせる
     this.showAttackEffect(this.player.x,this.player.y);
 
     const damage=3;
