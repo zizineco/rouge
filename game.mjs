@@ -1,4 +1,12 @@
-import { viewWidth, viewHeight, levelWidth, levelHeight, displayOptions, isMobile, cellSize } from './config.mjs';
+import {
+  viewWidth,
+  viewHeight,
+  levelWidth,
+  levelHeight,
+  displayOptions,
+  isMobile,
+  getDefaultCellSize
+} from './config.mjs';
 
 export class Game {
   constructor() {
@@ -18,6 +26,10 @@ export class Game {
     this.weaponItems = [];   // 床に落ちた武器
     this.player = null;
 
+    // ◆ ここがポイント：config.mjs の getDefaultCellSize を取得し、
+    //   ゲームインスタンス側で自由に再代入可能な変数として持つ
+    this.cellSize = getDefaultCellSize();
+
     // サウンドとセリフ
     this.attackSound = new Audio('wood.mp3');
     this.attackSound.volume = 0.5;
@@ -30,6 +42,8 @@ export class Game {
     ];
 
     // ROT.js の display 初期化
+    // config.mjs から import した displayOptions の fontSize を上書き
+    displayOptions.fontSize = this.cellSize;
     this.display = new ROT.Display(displayOptions);
     this.updateDisplaySize();
     document.body.appendChild(this.display.getContainer());
@@ -75,7 +89,57 @@ export class Game {
     this.generateLevel();
   }
 
-  /* キーボード入力処理 */
+  /* Display サイズ更新 */
+  updateDisplaySize() {
+    const container = this.display.getContainer();
+    container.style.width  = (viewWidth * this.cellSize) + 'px';
+    container.style.height = (viewHeight * this.cellSize) + 'px';
+  }
+
+  /* 拡大縮小 */
+  zoomIn() {
+    // 好みで制限をつけるなど
+    if (this.cellSize < 64) {
+      this.cellSize += 4;
+      this.updateDisplay();
+    }
+  }
+
+  zoomOut() {
+    if (this.cellSize > 8) {
+      this.cellSize -= 4;
+      this.updateDisplay();
+    }
+  }
+
+  updateDisplay() {
+    // 既存の display コンテナを削除
+    const container = this.display.getContainer();
+    if (container.parentNode) {
+      container.parentNode.removeChild(container);
+    }
+
+    // fontSize を更新
+    displayOptions.fontSize = this.cellSize;
+
+    // 新しい display を作り直す
+    this.display = new ROT.Display(displayOptions);
+    this.updateDisplaySize();
+    document.body.appendChild(this.display.getContainer());
+
+    // タッチイベントやクリックイベントを再登録
+    this.registerTouchEvents();
+    const newContainer = this.display.getContainer();
+    if (newContainer) {
+      newContainer.addEventListener('click', this.onClick.bind(this));
+    }
+
+    // 再描画
+    this.render();
+  }
+
+  /* 以下、他のメソッドやゲームロジックは従来通り */
+
   handleKeyDown(e) {
     if (this.gameOver) return;
     let dx = 0, dy = 0;
@@ -125,12 +189,11 @@ export class Game {
     }
   }
 
-  /* プレイヤーの移動処理 */
   movePlayer(dx, dy) {
     if (this.gameOver) return;
     const newX = this.player.x + dx;
     const newY = this.player.y + dy;
-    const newKey = newX + ',' + newY;
+    const newKey = `${newX},${newY}`;
 
     // 階段の判定
     if ((this.downStairs && newX === this.downStairs.x && newY === this.downStairs.y) ||
@@ -158,23 +221,23 @@ export class Game {
     this.render();
   }
 
-  /* Display サイズ更新 */
-  updateDisplaySize() {
-    const container = this.display.getContainer();
-    container.style.width  = (viewWidth * cellSize) + 'px';
-    container.style.height = (viewHeight * cellSize) + 'px';
-  }
-
-  /* タッチイベント登録 */
   registerTouchEvents() {
     const container = this.display.getContainer();
     if (container) {
-      container.addEventListener('touchstart', this.onTouchStart.bind(this), false);
-      container.addEventListener('touchend',   this.onTouchEnd.bind(this), false);
+      container.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
+      container.addEventListener('touchend',   this.onTouchEnd.bind(this),   { passive: false });
     }
   }
 
   onTouchStart(e) {
+    if (
+      e.target.closest('#zoom-controls') ||
+      e.target.closest('#history-controls') ||
+      e.target.closest('#help') ||
+      e.target.closest('#message-history-overlay')
+    ) {
+      return; // ボタンやオーバーレイの操作はそのまま
+    }
     const touch = e.touches[0];
     this.touchStartX = touch.clientX;
     this.touchStartY = touch.clientY;
@@ -187,7 +250,6 @@ export class Game {
     const deltaX = touch.clientX - this.touchStartX;
     const deltaY = touch.clientY - this.touchStartY;
 
-    // スワイプ距離が短い → タップ扱い
     if (Math.abs(deltaX) < this.swipeThreshold && Math.abs(deltaY) < this.swipeThreshold) {
       this.handleInteraction(touch.clientX, touch.clientY);
       this.touchStartX = null;
@@ -195,7 +257,6 @@ export class Game {
       return;
     }
 
-    // スワイプ → 自動ラン
     let angle = Math.atan2(deltaY, deltaX);
     const step = Math.PI / 4;
     let normalized = (angle + 2 * Math.PI) % (2 * Math.PI);
@@ -209,7 +270,6 @@ export class Game {
     e.preventDefault();
   }
 
-  /* クリック処理（敵選択など） */
   onClick(e) {
     this.handleInteraction(e.clientX, e.clientY);
   }
@@ -219,8 +279,8 @@ export class Game {
     const rect = container.getBoundingClientRect();
     const xPixel = clientX - rect.left;
     const yPixel = clientY - rect.top;
-    const cellX = Math.floor(xPixel / cellSize);
-    const cellY = Math.floor(yPixel / cellSize);
+    const cellX = Math.floor(xPixel / this.cellSize);
+    const cellY = Math.floor(yPixel / this.cellSize);
     const centerX = Math.floor(viewWidth / 2);
     const centerY = Math.floor(viewHeight / 2);
     const offsetX = centerX - this.player.x;
@@ -228,7 +288,6 @@ export class Game {
     const mapX = cellX - offsetX;
     const mapY = cellY - offsetY;
 
-    // 敵をクリックしたか判定
     const enemy = this.enemies.find(e => e.x === mapX && e.y === mapY);
     if (enemy) {
       this.enemies.forEach(e => e.selected = false);
@@ -242,7 +301,6 @@ export class Game {
     }
   }
 
-  /* 敵ステータス表示 */
   showEnemyStatus(enemy) {
     const enemyStatusEl = document.getElementById('enemy-status');
     enemyStatusEl.innerText = `Enemy: ${enemy.name}   HP: ${enemy.hp}`;
@@ -254,7 +312,6 @@ export class Game {
     enemyStatusEl.style.display = 'none';
   }
 
-  /* メッセージ表示＆履歴 */
   showDialogue(message) {
     this.messageHistory.push(message);
     const dialogue = document.getElementById('dialogue');
@@ -288,7 +345,6 @@ export class Game {
     }
   }
 
-  /* ユーティリティ関数 */
   getRandomFreeCell() {
     return this.freeCells[Math.floor(ROT.RNG.getUniform() * this.freeCells.length)];
   }
@@ -317,7 +373,6 @@ export class Game {
     return nearest;
   }
 
-  /* 視界計算（FOV 半径5） */
   computeFov() {
     const visibleCells = {};
     const fov = new ROT.FOV.PreciseShadowcasting((x, y) => {
@@ -329,7 +384,6 @@ export class Game {
     return visibleCells;
   }
 
-  /* 自動ラン（スワイプ時） */
   autoRun(dir) {
     if (this.gameOver) return;
     this.movePlayer(dir[0], dir[1]);
@@ -337,7 +391,6 @@ export class Game {
     const enemyVisible = this.enemies.some(e => fovCells[`${e.x},${e.y}`]);
     if (enemyVisible) return;
 
-    // 回り道が多い場所では止まる
     let freeCount = 0;
     const newX = this.player.x;
     const newY = this.player.y;
@@ -348,14 +401,11 @@ export class Game {
     });
     if (freeCount > 2) return;
 
-    // 次のステップ
     setTimeout(() => { this.autoRun(dir); }, 150);
   }
 
-  /* レベル生成・再生成 */
   generateLevel(forcedUpStairs = null, forcedDownStairs = null) {
     if (this.levels[this.currentFloor]) {
-      // 既存データをロード
       const levelData = this.levels[this.currentFloor];
       this.map          = levelData.map;
       this.freeCells    = levelData.freeCells;
@@ -372,7 +422,6 @@ export class Game {
       return;
     }
 
-    // 新規レベル生成
     this.map = {};
     this.freeCells = [];
     const digger = new ROT.Map.Digger(levelWidth, levelHeight);
@@ -390,7 +439,6 @@ export class Game {
       this.downStairs = this.getRandomFreeCell();
       this.upStairs = null;
     } else {
-      // 上り階段
       this.upStairs = (
         forcedUpStairs &&
         this.freeCells.find(cell => cell.x === forcedUpStairs.x && cell.y === forcedUpStairs.y)
@@ -398,7 +446,6 @@ export class Game {
         ? forcedUpStairs
         : (forcedUpStairs ? this.getNearestFreeCell(forcedUpStairs) : this.getRandomFreeCell());
 
-      // 下り階段
       if (forcedDownStairs) {
         this.downStairs = (
           this.freeCells.find(cell => cell.x === forcedDownStairs.x && cell.y === forcedDownStairs.y)
@@ -431,7 +478,6 @@ export class Game {
       };
     }
 
-    // 敵配置
     this.enemies = [];
     const enemyCount = 3;
     const enemyTypes = [
@@ -479,9 +525,8 @@ export class Game {
       this.enemies.push(cell);
     }
 
-    // 回復アイテム配置
-    const healingItemCount = 3;
     this.healingItems = [];
+    const healingItemCount = 3;
     while (this.healingItems.length < healingItemCount) {
       const cell = this.getRandomFreeCellExcluding([
         this.upStairs, this.downStairs, this.player,
@@ -492,10 +537,8 @@ export class Game {
       this.healingItems.push(cell);
     }
 
-    // 武器アイテム配置（初期は空）
     this.weaponItems = [];
 
-    // レベル情報を保存
     this.levels[this.currentFloor] = {
       map: this.map,
       freeCells: this.freeCells,
@@ -510,7 +553,6 @@ export class Game {
     this.render();
   }
 
-  /* 描画 */
   render() {
     this.display.clear();
     const centerX = Math.floor(viewWidth / 2);
@@ -527,7 +569,6 @@ export class Game {
     this.drawPlayer(offsetX, offsetY);
     this.updateStatus();
 
-    // 全体マップモード
     if (this.overviewMode && this.fullMapDisplay) {
       this.renderFullMap();
       const fullMapContainer = document.getElementById('fullmap');
@@ -636,7 +677,6 @@ export class Game {
       `Weapon: ${this.player.equippedWeapon ? this.player.equippedWeapon.name : 'None'}`;
   }
 
-  /* 攻撃エフェクト・処理 */
   showAttackEffect(x, y) {
     const frames = [
       { symbol: '!', color: 'orange' },
@@ -674,7 +714,6 @@ export class Game {
     enemy.hp -= damage;
 
     if (enemy.hp <= 0) {
-      // 敵死亡
       this.enemies = this.enemies.filter(e => e !== enemy);
       this.gainExperience(10);
       if (enemy.drop) {
@@ -698,7 +737,6 @@ export class Game {
     this.player.hp -= damage;
 
     if (this.player.hp <= 0) {
-      // プレイヤー死亡
       this.gameOver = true;
     }
   }
@@ -710,7 +748,6 @@ export class Game {
     setTimeout(() => { dialogue.style.display = 'none'; }, 3000);
   }
 
-  /* アイテムピックアップ */
   checkPickup() {
     for (let i = 0; i < this.healingItems.length; i++) {
       if (this.player.x === this.healingItems[i].x && this.player.y === this.healingItems[i].y) {
@@ -732,7 +769,6 @@ export class Game {
     }
   }
 
-  /* 回復ポーション使用 */
   useHealingItem() {
     if (this.player.inventory.length > 0) {
       const potion = this.player.inventory.shift();
@@ -745,7 +781,6 @@ export class Game {
     }
   }
 
-  /* 武器装備 */
   equipWeapon() {
     if (this.player.weapons.length === 0) {
       this.showDialogue('No weapons in inventory!');
@@ -768,7 +803,6 @@ export class Game {
     }
   }
 
-  /* 敵移動 */
   moveEnemies() {
     this.enemies.forEach(enemy => {
       const dx = enemy.x - this.player.x;
@@ -779,14 +813,12 @@ export class Game {
         else return;
       }
 
-      // 隣接なら攻撃
       if (Math.abs(enemy.x - this.player.x) <= 1 &&
           Math.abs(enemy.y - this.player.y) <= 1) {
         this.enemyAttack(enemy);
         return;
       }
 
-      // 経路探索
       const astar = new ROT.Path.AStar(
         this.player.x,
         this.player.y,
@@ -807,7 +839,6 @@ export class Game {
     });
   }
 
-  /* 経験値獲得・レベルアップ */
   gainExperience(amount) {
     this.player.exp += amount;
     while (this.player.exp >= this.player.nextExp) {
@@ -820,12 +851,10 @@ export class Game {
     this.updateStatus();
   }
 
-  /* フロア変更 */
   changeFloor(direction) {
     if (!this.levels[this.currentFloor]) {
       this.levels[this.currentFloor] = {};
     }
-    // 現在のフロア情報を保存
     this.levels[this.currentFloor].playerPos = { x: this.player.x, y: this.player.y };
     this.levels[this.currentFloor].healingItems = this.healingItems;
     this.levels[this.currentFloor].weaponItems = this.weaponItems;
@@ -849,45 +878,6 @@ export class Game {
     this.render();
   }
 
-  /* 拡大縮小 */
-  updateDisplay() {
-    const container = this.display.getContainer();
-    if (container.parentNode) {
-      container.parentNode.removeChild(container);
-    }
-    // displayOptions.fontSize = cellSize; ← cellSize は直接 import/export しているため
-    displayOptions.fontSize = cellSize;
-
-    this.display = new ROT.Display(displayOptions);
-    this.updateDisplaySize();
-    document.body.appendChild(this.display.getContainer());
-    this.registerTouchEvents();
-    const newContainer = this.display.getContainer();
-    if (newContainer) {
-      newContainer.addEventListener('click', this.onClick.bind(this));
-    }
-    this.render();
-  }
-
-  zoomIn() {
-    // cellSize は参照渡しではなく値渡しだが、config.js 側の変数も更新しておく必要がある
-    // もし「cellSize」をグローバルに扱いたいなら、import ではなく別手段も検討
-    // ここでは簡易的に再代入している
-    window.cellSize = window.cellSize ? window.cellSize + 4 : cellSize + 4;
-    // ただし、上記だとモジュールスコープと衝突する可能性があるため、
-    // 実際には config.js で再代入する関数を提供するなど別方法が望ましい
-    cellSize += 4;
-    this.updateDisplay();
-  }
-
-  zoomOut() {
-    if (cellSize > 8) {
-      cellSize -= 4;
-      this.updateDisplay();
-    }
-  }
-
-  /* 全体マップ表示切替 */
   toggleOverview() {
     this.overviewMode = !this.overviewMode;
     const fullMapContainer = document.getElementById('fullmap');
@@ -911,10 +901,8 @@ export class Game {
     }
   }
 
-  /* 全体マップ描画 */
   renderFullMap() {
     this.fullMapDisplay.clear();
-    // マップ
     for (let key in this.map) {
       const [xStr, yStr] = key.split(',');
       const x = parseInt(xStr);
@@ -923,7 +911,7 @@ export class Game {
       let color = (tile === '#') ? 'grey' : 'lightgrey';
       this.fullMapDisplay.draw(x, y, tile, color);
     }
-    // 階段
+
     if (this.upStairs) {
       this.fullMapDisplay.draw(
         this.upStairs.x,
@@ -940,14 +928,9 @@ export class Game {
         'lightblue'
       );
     }
-    // アイテム
+
     this.healingItems.forEach(item => {
-      this.fullMapDisplay.draw(
-        item.x,
-        item.y,
-        '!',
-        'green'
-      );
+      this.fullMapDisplay.draw(item.x, item.y, '!', 'green');
     });
     this.weaponItems.forEach(weapon => {
       this.fullMapDisplay.draw(
@@ -958,7 +941,6 @@ export class Game {
       );
     });
 
-    // 敵
     this.enemies.forEach(enemy => {
       this.fullMapDisplay.draw(
         enemy.x,
@@ -968,7 +950,6 @@ export class Game {
       );
     });
 
-    // プレイヤー
     this.fullMapDisplay.draw(
       this.player.x,
       this.player.y,

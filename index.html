@@ -9,6 +9,25 @@
   <script src="https://cdn.jsdelivr.net/npm/rot-js@2/dist/rot.js"></script>
   <!-- 外部CSS読み込み -->
   <link rel="stylesheet" href="style.css">
+
+  <style>
+    /* 例: 拡大縮小ボタンを常に前面に固定表示する */
+    #zoom-controls {
+      position: fixed;
+      right: 10px;
+      bottom: 10px;
+      z-index: 9999;
+    }
+    /* メッセージ履歴ボタンも前面に出す場合 */
+    #history-controls {
+      position: fixed;
+      left: 10px;
+      bottom: 10px;
+      z-index: 9999;
+    }
+    /* ヘルプ画面や履歴オーバーレイが被って操作できない場合、
+       適宜z-indexを調整してください。 */
+  </style>
 </head>
 <body>
   <!-- ステータス表示 -->
