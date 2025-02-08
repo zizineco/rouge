@@ -1,0 +1,132 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #000;
+  color: #fff;
+  font-family: monospace;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+canvas {
+  display: block;
+}
+
+#status {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-size: calc(1.5em + 1vw);
+  pointer-events: none;
+}
+
+#dialogue {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0,0,0,0.7);
+  padding: 10px;
+  border: 1px solid #fff;
+  font-size: calc(1em + 1vw);
+  pointer-events: none;
+  color: #ff0;
+  display: none;
+}
+
+#enemy-status {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: red;
+  font-size: calc(1em + 1vw);
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 5px 10px;
+  border: 1px solid red;
+  pointer-events: none;
+  display: none;
+}
+
+#help {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.85);
+  color: white;
+  display: none;
+  padding: 20px;
+  box-sizing: border-box;
+  font-size: calc(1em + 1vw);
+  overflow-y: auto;
+  z-index: 200;
+}
+
+#help h2 {
+  margin-top: 0;
+}
+
+#message-history-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.85);
+  color: white;
+  display: none;
+  padding: 20px;
+  box-sizing: border-box;
+  font-size: calc(1em + 1vw);
+  overflow-y: auto;
+  z-index: 200;
+}
+
+#message-history-overlay h2 {
+  margin-top: 0;
+}
+
+#zoom-controls {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+}
+
+#zoom-controls button {
+  font-size: 1.5em;
+  padding: 5px 10px;
+  margin: 2px;
+  cursor: pointer;
+}
+
+#history-controls {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 300;
+}
+
+#history-controls button {
+  font-size: 1.5em;
+  padding: 5px 10px;
+  margin: 2px;
+  cursor: pointer;
+}
+
+#fullmap {
+  display: none;
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  border: 1px solid #fff;
+  background-color: black;
+  z-index: 100;
+}
+
