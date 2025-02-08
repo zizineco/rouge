@@ -2,61 +2,51 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <!-- ブラウザウィンドウに合わせたスケーリング -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hengband Web版 - ROT.js サンプル (視界半径5・経験値・レベル・回復アイテム＆武器機能実装・複数敵タイプ対応)</title>
-  <!-- ROT.js 読み込み（v2） -->
+  <title>Hengband Web版 - ステータス表示修正版</title>
+
+  <!-- ROT.js v2 -->
   <script src="https://cdn.jsdelivr.net/npm/rot-js@2/dist/rot.js"></script>
-  <!-- 外部CSS読み込み -->
+
+  <!-- 外部CSS -->
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- ステータス表示 -->
+  <!-- プレイヤーステータス -->
   <div id="status"></div>
-  <!-- 敵セリフ表示 -->
-  <div id="dialogue"></div>
-  <!-- 敵ステータス表示 -->
-  <div id="enemy-status"></div>
 
-  <!-- ヘルプ画面用オーバーレイ -->
+  <div id="dialogue"></div>
+  <div id="enemy-status"></div>
   <div id="help">
     <h2>ヘルプ</h2>
     <ul>
-      <li><strong>矢印キー（またはテンキー）</strong>：移動</li>
-      <li><strong>U</strong>：回復ポーション使用</li>
-      <li><strong>E</strong>：武器装備</li>
-      <li><strong>M</strong>：全体マップ表示/非表示</li>
-      <li><strong>H</strong>：ヘルプ画面表示/非表示</li>
-      <li><strong>クリック／タップ</strong>：敵のステータス表示および選択</li>
-      <li><strong>スワイプ</strong>：自動ラン移動</li>
-      <li><strong>Zoom In/Out</strong>：画面右下のボタン</li>
-      <li><strong>履歴</strong>：画面左下の「履歴」ボタンでメッセージ履歴の表示</li>
+      <li>矢印キー：移動</li>
+      <li>U：回復ポーション</li>
+      <li>E：武器装備</li>
+      <li>M：全体マップ表示</li>
+      <li>H：ヘルプ</li>
+      <li>クリック/タップ：敵ステータス選択</li>
+      <li>ズーム：画面右下</li>
+      <li>履歴：左下</li>
     </ul>
-    <p>ヘルプ画面を閉じるには、H キーを押すか、ヘルプ画面上をクリックしてください。</p>
+    <p>ヘルプ画面を閉じるには、H キーを押すか、ヘルプ画面をクリック</p>
   </div>
-
-  <!-- メッセージ履歴用オーバーレイ -->
   <div id="message-history-overlay">
     <h2>メッセージ履歴</h2>
     <div id="message-history-content"></div>
-    <p>閉じるには、左下の「履歴」ボタンを再度クリックしてください。</p>
   </div>
 
-  <!-- 拡大縮小ボタン -->
   <div id="zoom-controls">
     <button id="zoom-in">＋</button>
     <button id="zoom-out">－</button>
   </div>
 
-  <!-- メッセージ履歴ボタン -->
   <div id="history-controls">
     <button id="history-toggle">履歴</button>
   </div>
 
-  <!-- 全体マップ表示用コンテナ -->
   <div id="fullmap"></div>
 
-  <!-- メインスクリプト（モジュールとして読み込む） -->
   <script type="module" src="main.mjs"></script>
 </body>
 </html>

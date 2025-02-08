@@ -1,17 +1,21 @@
-/* ===============
-   グローバルレイアウト・オーバーレイ
-   =============== */
-
-body {
+html, body {
   margin: 0;
   padding: 0;
-  background-color: #000;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
   color: #fff;
   font-family: sans-serif;
 }
 
+/* ステータスを画面左上に重ねて表示する */
 #status {
+  position: fixed;   /* Canvasより前面に表示するため固定配置 */
+  top: 0;
+  left: 0;
   margin: 8px;
+  z-index: 9999;     /* Canvasより上にくるように */
   font-weight: bold;
 }
 
@@ -20,7 +24,7 @@ body {
   bottom: 50%;
   left: 50%;
   transform: translate(-50%, 0);
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0,0,0,0.7);
   padding: 10px;
   border: 1px solid #888;
   display: none;
@@ -32,24 +36,18 @@ body {
   display: none;
 }
 
-/* ヘルプオーバーレイ */
 #help {
   position: fixed;
   top: 20%;
   left: 20%;
   width: 60%;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0,0,0,0.8);
   padding: 16px;
   border: 1px solid #888;
   display: none;
   z-index: 3000;
 }
 
-#help h2 {
-  margin-top: 0;
-}
-
-/* メッセージ履歴オーバーレイ */
 #message-history-overlay {
   position: fixed;
   top: 10%;
@@ -57,22 +55,13 @@ body {
   width: 80%;
   height: 80%;
   overflow-y: auto;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0,0,0,0.8);
   padding: 16px;
   border: 1px solid #888;
   display: none;
   z-index: 3000;
 }
 
-#message-history-overlay h2 {
-  margin-top: 0;
-}
-
-/* ===============
-   ボタン関連
-   =============== */
-
-/* 拡大縮小ボタン */
 #zoom-controls {
   position: fixed;
   right: 10px;
@@ -87,7 +76,6 @@ body {
   height: 40px;
 }
 
-/* メッセージ履歴ボタン */
 #history-controls {
   position: fixed;
   left: 10px;
@@ -100,14 +88,13 @@ body {
   padding: 6px 12px;
 }
 
-/* 全体マップコンテナ */
 #fullmap {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0,0,0,0.8);
   display: none;
   z-index: 3000;
 }

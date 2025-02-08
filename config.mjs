@@ -1,28 +1,16 @@
-// ============
 // config.mjs
-// ============
-// 画面関連の設定や、モバイル判定等をまとめる
 
-export const viewWidth = 80;       // 表示キャンバスのセル数（横）
-export const viewHeight = 25;      // 表示キャンバスのセル数（縦）
-export const levelWidth = 120;     // マップ全体のセル数（横）
-export const levelHeight = 40;     // マップ全体のセル数（縦）
+export const levelWidth = 120;   // マップ全体の幅(セル)
+export const levelHeight = 40;   // マップ全体の高さ(セル)
 
-export const isMobile = window.innerWidth < 600;
-
-// cellSize を直接 export すると再代入エラーが出る環境があるため
-// 関数として定義し、使用側で独自に this.cellSize などの変数に持つ方式を推奨
-export function getDefaultCellSize() {
-  return isMobile ? 32 : 16;
-}
-
-// ROT.Display 用初期設定（fontSize は後から上書き可能）
+// ROT.Display のオプション (例)
 export const displayOptions = {
-  width: viewWidth,
-  height: viewHeight,
-  fontSize: 16, // とりあえず仮の初期値
+  width: 80,        // 実際には後で自動計算
+  height: 25,       // 実際には後で自動計算
+  fontSize: 16,
   forceSquareRatio: true,
-  bg: "black",
-  fg: "white"
+  bg: 'black',
+  fg: 'white',
+  useHiDPI: false
 };
 
