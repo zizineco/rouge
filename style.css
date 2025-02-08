@@ -1,132 +1,114 @@
-html, body {
+/* ===============
+   グローバルレイアウト・オーバーレイ
+   =============== */
+
+body {
   margin: 0;
   padding: 0;
-  overflow: hidden;
   background-color: #000;
   color: #fff;
-  font-family: monospace;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-}
-
-canvas {
-  display: block;
+  font-family: sans-serif;
 }
 
 #status {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: white;
-  font-size: calc(1.5em + 1vw);
-  pointer-events: none;
+  margin: 8px;
+  font-weight: bold;
 }
 
 #dialogue {
   position: fixed;
-  bottom: 60px;
+  bottom: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  background-color: rgba(0,0,0,0.7);
+  transform: translate(-50%, 0);
+  background: rgba(0, 0, 0, 0.7);
   padding: 10px;
-  border: 1px solid #fff;
-  font-size: calc(1em + 1vw);
-  pointer-events: none;
-  color: #ff0;
+  border: 1px solid #888;
   display: none;
+  z-index: 2000;
 }
 
 #enemy-status {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  color: red;
-  font-size: calc(1em + 1vw);
-  background-color: rgba(0, 0, 0, 0.7);
-  padding: 5px 10px;
-  border: 1px solid red;
-  pointer-events: none;
+  margin: 8px;
   display: none;
 }
 
+/* ヘルプオーバーレイ */
 #help {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.85);
-  color: white;
+  top: 20%;
+  left: 20%;
+  width: 60%;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 16px;
+  border: 1px solid #888;
   display: none;
-  padding: 20px;
-  box-sizing: border-box;
-  font-size: calc(1em + 1vw);
-  overflow-y: auto;
-  z-index: 200;
+  z-index: 3000;
 }
 
 #help h2 {
   margin-top: 0;
 }
 
+/* メッセージ履歴オーバーレイ */
 #message-history-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.85);
-  color: white;
-  display: none;
-  padding: 20px;
-  box-sizing: border-box;
-  font-size: calc(1em + 1vw);
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;
   overflow-y: auto;
-  z-index: 200;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 16px;
+  border: 1px solid #888;
+  display: none;
+  z-index: 3000;
 }
 
 #message-history-overlay h2 {
   margin-top: 0;
 }
 
+/* ===============
+   ボタン関連
+   =============== */
+
+/* 拡大縮小ボタン */
 #zoom-controls {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 9999;
 }
 
 #zoom-controls button {
-  font-size: 1.5em;
-  padding: 5px 10px;
-  margin: 2px;
-  cursor: pointer;
+  font-size: 1.2rem;
+  margin: 0 2px;
+  width: 40px;
+  height: 40px;
 }
 
+/* メッセージ履歴ボタン */
 #history-controls {
   position: fixed;
-  left: 20px;
-  bottom: 20px;
-  z-index: 300;
+  left: 10px;
+  bottom: 10px;
+  z-index: 9999;
 }
 
 #history-controls button {
-  font-size: 1.5em;
-  padding: 5px 10px;
-  margin: 2px;
-  cursor: pointer;
+  font-size: 1rem;
+  padding: 6px 12px;
 }
 
+/* 全体マップコンテナ */
 #fullmap {
-  display: none;
   position: fixed;
-  top: 10px;
-  left: 10px;
-  border: 1px solid #fff;
-  background-color: black;
-  z-index: 100;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: none;
+  z-index: 3000;
 }
 

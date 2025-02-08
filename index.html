@@ -1,33 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <!-- ブラウザウィンドウに合わせたスケーリング -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hengband Web版 - ROT.js サンプル (視界半径5・経験値・レベル・回復アイテム＆武器機能実装・複数敵タイプ対応)</title>
-  <!-- ROT.js の読み込み（v2） -->
+  <!-- ROT.js 読み込み（v2） -->
   <script src="https://cdn.jsdelivr.net/npm/rot-js@2/dist/rot.js"></script>
   <!-- 外部CSS読み込み -->
-  <link rel="stylesheet" href="style.css">
-
-  <style>
-    /* 例: 拡大縮小ボタンを常に前面に固定表示する */
-    #zoom-controls {
-      position: fixed;
-      right: 10px;
-      bottom: 10px;
-      z-index: 9999;
-    }
-    /* メッセージ履歴ボタンも前面に出す場合 */
-    #history-controls {
-      position: fixed;
-      left: 10px;
-      bottom: 10px;
-      z-index: 9999;
-    }
-    /* ヘルプ画面や履歴オーバーレイが被って操作できない場合、
-       適宜z-indexを調整してください。 */
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <!-- ステータス表示 -->
@@ -36,6 +17,7 @@
   <div id="dialogue"></div>
   <!-- 敵ステータス表示 -->
   <div id="enemy-status"></div>
+
   <!-- ヘルプ画面用オーバーレイ -->
   <div id="help">
     <h2>ヘルプ</h2>
@@ -52,21 +34,25 @@
     </ul>
     <p>ヘルプ画面を閉じるには、H キーを押すか、ヘルプ画面上をクリックしてください。</p>
   </div>
+
   <!-- メッセージ履歴用オーバーレイ -->
   <div id="message-history-overlay">
     <h2>メッセージ履歴</h2>
     <div id="message-history-content"></div>
     <p>閉じるには、左下の「履歴」ボタンを再度クリックしてください。</p>
   </div>
+
   <!-- 拡大縮小ボタン -->
   <div id="zoom-controls">
     <button id="zoom-in">＋</button>
     <button id="zoom-out">－</button>
   </div>
+
   <!-- メッセージ履歴ボタン -->
   <div id="history-controls">
     <button id="history-toggle">履歴</button>
   </div>
+
   <!-- 全体マップ表示用コンテナ -->
   <div id="fullmap"></div>
 
