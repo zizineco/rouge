@@ -29,8 +29,6 @@ export class Game {
     this.weaponItems = [];
     this.player = null;
 
-    this.cellSize = 16;
-
     this.attackSound = new Audio('wood.mp3');
     this.attackSound.volume = 0.5;
     this.enemyDialogues = [
@@ -40,32 +38,37 @@ export class Game {
       'なめるな！',
       'お前を潰してやる！'
     ];
+    // デフォルトのセルサイズを設定（スマホの場合はPC版より大きくする）
+    if (/Mobi|Android/i.test(navigator.userAgent)) {
+      this.cellSize = 24;
+    } else {
+      this.cellSize = 16;
+    }
 
-    // レベル生成
+    // 初期レベル生成を追加（これによりプレイヤーやマップが初期化されます）
     this.generateLevel();
 
-    // ROT.Display
-    this.display = new ROT.Display(displayOptions);
+    // displayOptions の fontSize を this.cellSize に合わせて初期化
+    const options = { ...displayOptions, fontSize: this.cellSize };
+    this.display = new ROT.Display(options);
 
     const container = this.display.getContainer();
     container.style.position = 'absolute';
     container.style.top = '0';
     container.style.left = '0';
+    container.style.touchAction = 'none';
     document.body.appendChild(container);
 
-    // ウィンドウリサイズ
+    // すべての環境でリサイズイベントを有効にする
     window.addEventListener('resize', this.resizeToFit.bind(this));
     this.resizeToFit();
 
-    // キーボード
     window.addEventListener('keydown', this.handleKeyDown.bind(this));
 
-    // タッチ
     this.touchStartX = null;
     this.touchStartY = null;
     this.registerTouchEvents();
 
-    // UIボタン
     const zoomInEl = document.getElementById('zoom-in');
     if (zoomInEl) {
       zoomInEl.addEventListener('click', this.zoomIn.bind(this));
@@ -87,23 +90,35 @@ export class Game {
     this.overviewMode = false;
     this.fullMapDisplay = null;
 
-    // 初回描画
     this.render();
   }
 
+  // 修正: モバイルの場合は、画面サイズから算出されるセル数を半分にしてキャンバスサイズを小さくする
   resizeToFit() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    let newWidthCells = Math.floor(w / this.cellSize);
-    let newHeightCells= Math.floor(h / this.cellSize);
+    const w = document.documentElement.clientWidth;
+    const h = document.documentElement.clientHeight;
 
-    newWidthCells  = clamp(newWidthCells, 10, 120);
+    let newWidthCells = Math.floor(w / this.cellSize);
+    let newHeightCells = Math.floor(h / this.cellSize);
+
+    newWidthCells  = clamp(newWidthCells, 10, 120) * 2;
     newHeightCells = clamp(newHeightCells, 10, 60);
 
+    // devicePixelRatio に合わせてキャンバスの内部解像度を設定
+    const dpr = window.devicePixelRatio || 1;
+
+    const canvas = this.display.getContainer();
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = canvas.offsetHeight * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    
     this.display.setOptions({
       width: newWidthCells,
       height: newHeightCells,
-      fontSize: this.cellSize
+      fontSize: this.cellSize * dpr
     });
 
     this.render();
@@ -168,7 +183,7 @@ export class Game {
         return;
     }
 
-    if(dx!==0 || dy!==0) {
+    if(dx !== 0 || dy !== 0) {
       this.movePlayer(dx, dy);
       e.preventDefault();
     }
@@ -181,14 +196,14 @@ export class Game {
     const newKey = `${newX},${newY}`;
 
     // 階段
-    if ((this.downStairs && newX===this.downStairs.x && newY===this.downStairs.y) ||
-        (this.upStairs   && newX===this.upStairs.x   && newY===this.upStairs.y)) {
-      this.changeFloor((this.downStairs && newX===this.downStairs.x)?'down':'up');
+    if ((this.downStairs && newX === this.downStairs.x && newY === this.downStairs.y) ||
+        (this.upStairs   && newX === this.upStairs.x   && newY === this.upStairs.y)) {
+      this.changeFloor((this.downStairs && newX === this.downStairs.x) ? 'down' : 'up');
       return;
     }
 
     // 敵
-    const enemy = this.enemies.find(e=> e.x===newX && e.y===newY);
+    const enemy = this.enemies.find(e => e.x === newX && e.y === newY);
     if (enemy) {
       this.playerAttack(enemy);
       this.render();
@@ -196,7 +211,7 @@ export class Game {
     }
 
     // 壁判定
-    if (this.map[newKey]!=='.') {
+    if (this.map[newKey] !== '.') {
       return;
     }
 
@@ -211,31 +226,53 @@ export class Game {
 
   registerTouchEvents() {
     const container = this.display.getContainer();
-    if(!container)return;
+    if (!container) return;
 
     container.addEventListener('touchstart', e => {
-      if(
-        e.target.closest('#zoom-controls')||
-        e.target.closest('#history-controls')||
-        e.target.closest('#help')||
+      if (
+        e.target.closest('#zoom-controls') ||
+        e.target.closest('#history-controls') ||
+        e.target.closest('#help') ||
         e.target.closest('#message-history-overlay')
-      ){
+      ) {
         return;
       }
-      const touch=e.touches[0];
+      const touch = e.touches[0];
       this.touchStartX = touch.clientX;
       this.touchStartY = touch.clientY;
       e.preventDefault();
-    },{passive:false});
+    }, { passive: false });
 
     container.addEventListener('touchend', e => {
-      if(this.touchStartX===null||this.touchStartY===null)return;
-      const touch=e.changedTouches[0];
-      this.handleInteraction(touch.clientX,touch.clientY);
-      this.touchStartX=null;
-      this.touchStartY=null;
+      if (this.touchStartX === null || this.touchStartY === null) return;
+      const touch = e.changedTouches[0];
+      const deltaX = touch.clientX - this.touchStartX;
+      const deltaY = touch.clientY - this.touchStartY;
+      const swipeThreshold = 30;
+      
+      // スワイプとタップを判別
+      if (Math.abs(deltaX) > swipeThreshold || Math.abs(deltaY) > swipeThreshold) {
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          if (deltaX > 0) {
+            this.movePlayer(1, 0);
+          } else {
+            this.movePlayer(-1, 0);
+          }
+        } else {
+          if (deltaY > 0) {
+            this.movePlayer(0, 1);
+          } else {
+            this.movePlayer(0, -1);
+          }
+        }
+      } else {
+        this.handleInteraction(touch.clientX, touch.clientY);
+      }
+
+      this.touchStartX = null;
+      this.touchStartY = null;
       e.preventDefault();
-    },{passive:false});
+    }, { passive: false });
 
     container.addEventListener('click', this.onClick.bind(this));
   }
@@ -244,351 +281,353 @@ export class Game {
     this.handleInteraction(e.clientX, e.clientY);
   }
 
-  handleInteraction(clientX, clientY){
-    const container=this.display.getContainer();
-    const rect=container.getBoundingClientRect();
-    const xPixel= clientX - rect.left;
-    const yPixel= clientY - rect.top;
+  // プレイヤーが存在するか確認してから処理
+  handleInteraction(clientX, clientY) {
+    if (!this.player) return;
+    const container = this.display.getContainer();
+    const rect = container.getBoundingClientRect();
+    const xPixel = clientX - rect.left;
+    const yPixel = clientY - rect.top;
 
-    const opts=this.display.getOptions();
-    const screenW=opts.width;
-    const screenH=opts.height;
-    const cellSize=opts.fontSize;
+    const opts = this.display.getOptions();
+    const screenW = opts.width;
+    const screenH = opts.height;
+    const cellSize = opts.fontSize;
 
-    const centerX=Math.floor(screenW/2);
-    const centerY=Math.floor(screenH/2);
+    const centerX = Math.floor(screenW / 2);
+    const centerY = Math.floor(screenH / 2);
 
-    const cellX=Math.floor(xPixel/cellSize);
-    const cellY=Math.floor(yPixel/cellSize);
+    const cellX = Math.floor(xPixel / cellSize);
+    const cellY = Math.floor(yPixel / cellSize);
 
-    const offsetX= centerX - this.player.x;
-    const offsetY= centerY - this.player.y;
+    const offsetX = centerX - this.player.x;
+    const offsetY = centerY - this.player.y;
 
-    const mapX= cellX - offsetX;
-    const mapY= cellY - offsetY;
+    const mapX = cellX - offsetX;
+    const mapY = cellY - offsetY;
 
-    const enemy = this.enemies.find(en=>en.x===mapX&&en.y===mapY);
-    if(enemy){
-      this.enemies.forEach(e=> e.selected=false);
-      enemy.selected=true;
+    const enemy = this.enemies.find(en => en.x === mapX && en.y === mapY);
+    if (enemy) {
+      this.enemies.forEach(e => e.selected = false);
+      enemy.selected = true;
       this.showEnemyStatus(enemy);
       this.render();
     } else {
-      this.enemies.forEach(e=> e.selected=false);
+      this.enemies.forEach(e => e.selected = false);
       this.clearEnemyStatus();
       this.render();
     }
   }
 
   moveEnemies() {
-    this.enemies.forEach(enemy=>{
-      const dx= enemy.x - this.player.x;
-      const dy= enemy.y - this.player.y;
-      const dist= Math.sqrt(dx*dx+dy*dy);
+    this.enemies.forEach(enemy => {
+      const dx = enemy.x - this.player.x;
+      const dy = enemy.y - this.player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if(!enemy.alerted){
-        if(dist<= enemy.senseRadius){
-          enemy.alerted=true;
+      if (!enemy.alerted) {
+        if (dist <= enemy.senseRadius) {
+          enemy.alerted = true;
         } else {
           return;
         }
       }
 
-      if(Math.abs(dx)<=1 && Math.abs(dy)<=1){
+      if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) {
         this.enemyAttack(enemy);
         return;
       }
 
-      const astar=new ROT.Path.AStar(
+      const astar = new ROT.Path.AStar(
         this.player.x,
         this.player.y,
-        (x,y)=> this.map[`${x},${y}`]==='.',
-        { topology:8 }
+        (x, y) => this.map[`${x},${y}`] === '.',
+        { topology: 8 }
       );
-      const path=[];
-      astar.compute(enemy.x, enemy.y,(x,y)=>{
-        path.push({x,y});
+      const path = [];
+      astar.compute(enemy.x, enemy.y, (x, y) => {
+        path.push({ x, y });
       });
-      if(path.length>1){
-        enemy.x= path[1].x;
-        enemy.y= path[1].y;
+      if (path.length > 1) {
+        enemy.x = path[1].x;
+        enemy.y = path[1].y;
       }
     });
   }
 
-  generateLevel(forcedUpStairs=null, forcedDownStairs=null){
-    if(this.levels[this.currentFloor]){
-      const levelData=this.levels[this.currentFloor];
-      this.map=levelData.map;
-      this.freeCells=levelData.freeCells;
-      this.upStairs=levelData.upStairs;
-      this.downStairs=levelData.downStairs;
-      this.enemies=levelData.enemies;
-      this.healingItems=levelData.healingItems||[];
-      this.weaponItems=levelData.weaponItems||[];
-      if(levelData.playerPos){
-        if(!this.player){
-          this.player={
-            x:levelData.playerPos.x,
-            y:levelData.playerPos.y,
-            hp:20,
-            maxHp:20,
-            level:1,
-            exp:0,
-            nextExp:20,
-            inventory:[],
-            weapons:[],
-            equippedWeapon:null
+  generateLevel(forcedUpStairs = null, forcedDownStairs = null) {
+    if (this.levels[this.currentFloor]) {
+      const levelData = this.levels[this.currentFloor];
+      this.map = levelData.map;
+      this.freeCells = levelData.freeCells;
+      this.upStairs = levelData.upStairs;
+      this.downStairs = levelData.downStairs;
+      this.enemies = levelData.enemies;
+      this.healingItems = levelData.healingItems || [];
+      this.weaponItems = levelData.weaponItems || [];
+      if (levelData.playerPos) {
+        if (!this.player) {
+          this.player = {
+            x: levelData.playerPos.x,
+            y: levelData.playerPos.y,
+            hp: 20,
+            maxHp: 20,
+            level: 1,
+            exp: 0,
+            nextExp: 20,
+            inventory: [],
+            weapons: [],
+            equippedWeapon: null
           };
         } else {
-          this.player.x=levelData.playerPos.x;
-          this.player.y=levelData.playerPos.y;
+          this.player.x = levelData.playerPos.x;
+          this.player.y = levelData.playerPos.y;
         }
       }
       return;
     }
 
-    this.map={};
-    this.freeCells=[];
-    const digger=new ROT.Map.Digger(levelWidth, levelHeight);
-    digger.create((x,y,value)=>{
-      const key=`${x},${y}`;
-      if(value){
-        this.map[key]='#';
+    this.map = {};
+    this.freeCells = [];
+    const digger = new ROT.Map.Digger(levelWidth, levelHeight);
+    digger.create((x, y, value) => {
+      const key = `${x},${y}`;
+      if (value) {
+        this.map[key] = '#';
       } else {
-        this.map[key]='.';
-        this.freeCells.push({x,y});
+        this.map[key] = '.';
+        this.freeCells.push({ x, y });
       }
     });
 
-    if(this.currentFloor===1){
-      this.downStairs=this.getRandomFreeCell();
-      this.upStairs=null;
+    if (this.currentFloor === 1) {
+      this.downStairs = this.getRandomFreeCell();
+      this.upStairs = null;
     } else {
-      this.upStairs= forcedUpStairs?
-        (this.freeCells.find(c=> c.x===forcedUpStairs.x && c.y===forcedUpStairs.y)
+      this.upStairs = forcedUpStairs ?
+        (this.freeCells.find(c => c.x === forcedUpStairs.x && c.y === forcedUpStairs.y)
          ? forcedUpStairs : this.getNearestFreeCell(forcedUpStairs))
         : this.getRandomFreeCell();
 
-      if(forcedDownStairs){
-        this.downStairs=(this.freeCells.find(c=> c.x===forcedDownStairs.x&&c.y===forcedDownStairs.y)
-                        ?forcedDownStairs:this.getNearestFreeCell(forcedDownStairs));
+      if (forcedDownStairs) {
+        this.downStairs = (this.freeCells.find(c => c.x === forcedDownStairs.x && c.y === forcedDownStairs.y)
+                        ? forcedDownStairs : this.getNearestFreeCell(forcedDownStairs));
       } else {
-        do{
-          this.downStairs=this.getRandomFreeCell();
-        }while(
-          this.downStairs.x===this.upStairs?.x &&
-          this.downStairs.y===this.upStairs?.y
+        do {
+          this.downStairs = this.getRandomFreeCell();
+        } while (
+          this.downStairs.x === this.upStairs?.x &&
+          this.downStairs.y === this.upStairs?.y
         );
       }
     }
 
-    if(!this.player){
-      const start=this.getRandomFreeCellExcluding([]);
-      this.player={
-        x:start.x,
-        y:start.y,
-        hp:20,
-        maxHp:20,
-        level:1,
-        exp:0,
-        nextExp:20,
-        inventory:[],
-        weapons:[],
-        equippedWeapon:null
+    if (!this.player) {
+      const start = this.getRandomFreeCellExcluding([]);
+      this.player = {
+        x: start.x,
+        y: start.y,
+        hp: 20,
+        maxHp: 20,
+        level: 1,
+        exp: 0,
+        nextExp: 20,
+        inventory: [],
+        weapons: [],
+        equippedWeapon: null
       };
     }
 
-    this.enemies=[];
-    const enemyCount=3;
-    const enemyTypes=[
+    this.enemies = [];
+    const enemyCount = 3;
+    const enemyTypes = [
       {
-        type:'Goblin', symbol:'g', color:'green', baseHp:8,
-        senseRadius:6, drop:{ name:'Rusty Dagger', bonus:1, symbol:'d', color:'white'}
+        type: 'Goblin', symbol: 'g', color: 'green', baseHp: 8,
+        senseRadius: 6, drop: { name: 'Rusty Dagger', bonus: 1, symbol: 'd', color: 'white' }
       },
       {
-        type:'Orc', symbol:'o', color:'orange', baseHp:12,
-        senseRadius:8, drop:{ name:'Orcish Axe', bonus:2, symbol:'A', color:'brown'}
+        type: 'Orc', symbol: 'o', color: 'orange', baseHp: 12,
+        senseRadius: 8, drop: { name: 'Orcish Axe', bonus: 2, symbol: 'A', color: 'brown' }
       },
       {
-        type:'Troll', symbol:'T', color:'darkgreen', baseHp:20,
-        senseRadius:10, drop:{ name:'Heavy Club', bonus:3, symbol:'C', color:'gray'}
+        type: 'Troll', symbol: 'T', color: 'darkgreen', baseHp: 20,
+        senseRadius: 10, drop: { name: 'Heavy Club', bonus: 3, symbol: 'C', color: 'gray' }
       }
     ];
 
-    while(this.enemies.length<enemyCount){
-      const cell=this.getRandomFreeCellExcluding([
-        this.upStairs,this.downStairs,this.player
+    while (this.enemies.length < enemyCount) {
+      const cell = this.getRandomFreeCellExcluding([
+        this.upStairs, this.downStairs, this.player
       ]);
-      if(!cell)break;
-      const et= enemyTypes[Math.floor(ROT.RNG.getUniform()*enemyTypes.length)];
-      cell.hp=et.baseHp;
-      cell.level=this.currentFloor;
-      cell.symbol=et.symbol;
-      cell.color=et.color;
-      cell.senseRadius=et.senseRadius;
-      cell.drop=et.drop;
-      cell.name=et.type;
-      cell.alerted=false;
-      cell.selected=false;
+      if (!cell) break;
+      const et = enemyTypes[Math.floor(ROT.RNG.getUniform() * enemyTypes.length)];
+      cell.hp = et.baseHp;
+      cell.level = this.currentFloor;
+      cell.symbol = et.symbol;
+      cell.color = et.color;
+      cell.senseRadius = et.senseRadius;
+      cell.drop = et.drop;
+      cell.name = et.type;
+      cell.alerted = false;
+      cell.selected = false;
       this.enemies.push(cell);
     }
 
-    this.healingItems=[];
-    const healingItemCount=3;
-    while(this.healingItems.length<healingItemCount){
-      const cell=this.getRandomFreeCellExcluding([
-        this.upStairs,this.downStairs,this.player,
-        ...this.enemies,...this.healingItems
+    this.healingItems = [];
+    const healingItemCount = 3;
+    while (this.healingItems.length < healingItemCount) {
+      const cell = this.getRandomFreeCellExcluding([
+        this.upStairs, this.downStairs, this.player,
+        ...this.enemies, ...this.healingItems
       ]);
-      if(!cell)break;
-      cell.amount=10;
+      if (!cell) break;
+      cell.amount = 10;
       this.healingItems.push(cell);
     }
 
-    this.weaponItems=[];
+    this.weaponItems = [];
 
-    this.levels[this.currentFloor]={
-      map:this.map,
-      freeCells:this.freeCells,
-      upStairs:this.upStairs,
-      downStairs:this.downStairs,
-      enemies:this.enemies,
-      healingItems:this.healingItems,
-      weaponItems:this.weaponItems,
-      playerPos:{ x:this.player.x, y:this.player.y }
+    this.levels[this.currentFloor] = {
+      map: this.map,
+      freeCells: this.freeCells,
+      upStairs: this.upStairs,
+      downStairs: this.downStairs,
+      enemies: this.enemies,
+      healingItems: this.healingItems,
+      weaponItems: this.weaponItems,
+      playerPos: { x: this.player.x, y: this.player.y }
     };
   }
 
-  getRandomFreeCell(){
-    if(this.freeCells.length===0)return null;
-    return this.freeCells[Math.floor(ROT.RNG.getUniform()*this.freeCells.length)];
+  getRandomFreeCell() {
+    if (this.freeCells.length === 0) return null;
+    return this.freeCells[Math.floor(ROT.RNG.getUniform() * this.freeCells.length)];
   }
 
-  getRandomFreeCellExcluding(exclusions=[]){
-    const candidates=this.freeCells.filter(cell=>{
-      return !exclusions.some(ex=>ex&&cell.x===ex.x&&cell.y===ex.y);
+  getRandomFreeCellExcluding(exclusions = []) {
+    const candidates = this.freeCells.filter(cell => {
+      return !exclusions.some(ex => ex && cell.x === ex.x && cell.y === ex.y);
     });
-    if(!candidates.length)return null;
-    return candidates[Math.floor(ROT.RNG.getUniform()*candidates.length)];
+    if (!candidates.length) return null;
+    return candidates[Math.floor(ROT.RNG.getUniform() * candidates.length)];
   }
 
-  getNearestFreeCell(target){
-    let minDist=Infinity; let nearest=null;
-    this.freeCells.forEach(cell=>{
-      const dx=cell.x-target.x;
-      const dy=cell.y-target.y;
-      const dist=Math.sqrt(dx*dx+dy*dy);
-      if(dist<minDist){
-        minDist=dist;
-        nearest=cell;
+  getNearestFreeCell(target) {
+    let minDist = Infinity; let nearest = null;
+    this.freeCells.forEach(cell => {
+      const dx = cell.x - target.x;
+      const dy = cell.y - target.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = cell;
       }
     });
     return nearest;
   }
 
-  render(){
-    if(!this.player)return;
+  render() {
+    if (!this.player) return;
     this.display.clear();
 
-    const opts=this.display.getOptions();
-    const screenW=opts.width;
-    const screenH=opts.height;
+    const opts = this.display.getOptions();
+    const screenW = opts.width;
+    const screenH = opts.height;
 
-    const centerX=Math.floor(screenW/2);
-    const centerY=Math.floor(screenH/2);
+    const centerX = Math.floor(screenW / 2);
+    const centerY = Math.floor(screenH / 2);
 
-    const offsetX=centerX-this.player.x;
-    const offsetY=centerY-this.player.y;
+    const offsetX = centerX - this.player.x;
+    const offsetY = centerY - this.player.y;
 
-    const visibleCells=this.computeFov();
+    const visibleCells = this.computeFov();
 
-    this.drawMap(offsetX,offsetY,visibleCells);
-    this.drawStairs(offsetX,offsetY);
-    this.drawHealingItems(offsetX,offsetY,visibleCells);
-    this.drawWeaponItems(offsetX,offsetY,visibleCells);
-    this.drawEnemies(offsetX,offsetY,visibleCells);
-    this.drawPlayer(offsetX,offsetY);
+    this.drawMap(offsetX, offsetY, visibleCells);
+    this.drawStairs(offsetX, offsetY);
+    this.drawHealingItems(offsetX, offsetY, visibleCells);
+    this.drawWeaponItems(offsetX, offsetY, visibleCells);
+    this.drawEnemies(offsetX, offsetY, visibleCells);
+    this.drawPlayer(offsetX, offsetY);
 
     this.updateStatus();
 
-    if(this.overviewMode&&this.fullMapDisplay){
+    if (this.overviewMode && this.fullMapDisplay) {
       this.renderFullMap();
-      const fullMapContainer=document.getElementById('fullmap');
-      fullMapContainer.innerHTML='';
+      const fullMapContainer = document.getElementById('fullmap');
+      fullMapContainer.innerHTML = '';
       fullMapContainer.appendChild(this.fullMapDisplay.getContainer());
     }
   }
 
-  drawMap(offsetX,offsetY,visibleCells){
-    for(const key in this.map){
-      const [xStr,yStr]=key.split(',');
-      const mapX=parseInt(xStr);
-      const mapY=parseInt(yStr);
-      const screenX=mapX+offsetX;
-      const screenY=mapY+offsetY;
+  drawMap(offsetX, offsetY, visibleCells) {
+    for (const key in this.map) {
+      const [xStr, yStr] = key.split(',');
+      const mapX = parseInt(xStr);
+      const mapY = parseInt(yStr);
+      const screenX = mapX + offsetX;
+      const screenY = mapY + offsetY;
 
       let color;
-      if(visibleCells[key]){
-        color=(this.map[key]==='#')?'grey':'lightgrey';
+      if (visibleCells[key]) {
+        color = (this.map[key] === '#') ? 'grey' : 'lightgrey';
       } else {
-        color=(this.map[key]==='#')?'darkslategray':'dimgray';
+        color = (this.map[key] === '#') ? 'darkslategray' : 'dimgray';
       }
-      this.display.draw(screenX,screenY,this.map[key],color);
+      this.display.draw(screenX, screenY, this.map[key], color);
     }
   }
 
-  drawStairs(offsetX,offsetY){
-    if(this.upStairs){
+  drawStairs(offsetX, offsetY) {
+    if (this.upStairs) {
       this.display.draw(
-        this.upStairs.x+offsetX,
-        this.upStairs.y+offsetY,
-        '<','lightblue'
+        this.upStairs.x + offsetX,
+        this.upStairs.y + offsetY,
+        '<', 'lightblue'
       );
     }
-    if(this.downStairs){
+    if (this.downStairs) {
       this.display.draw(
-        this.downStairs.x+offsetX,
-        this.downStairs.y+offsetY,
-        '>','lightblue'
+        this.downStairs.x + offsetX,
+        this.downStairs.y + offsetY,
+        '>', 'lightblue'
       );
     }
   }
 
-  drawHealingItems(offsetX,offsetY,visibleCells){
-    this.healingItems.forEach(item=>{
-      const key=`${item.x},${item.y}`;
-      if(visibleCells[key]){
-        this.display.draw(item.x+offsetX,item.y+offsetY,'!', 'green');
+  drawHealingItems(offsetX, offsetY, visibleCells) {
+    this.healingItems.forEach(item => {
+      const key = `${item.x},${item.y}`;
+      if (visibleCells[key]) {
+        this.display.draw(item.x + offsetX, item.y + offsetY, '!', 'green');
       }
     });
   }
 
-  drawWeaponItems(offsetX,offsetY,visibleCells){
-    this.weaponItems.forEach(w=>{
-      const key=`${w.x},${w.y}`;
-      if(visibleCells[key]){
-        this.display.draw(w.x+offsetX,w.y+offsetY,w.symbol,w.color);
+  drawWeaponItems(offsetX, offsetY, visibleCells) {
+    this.weaponItems.forEach(w => {
+      const key = `${w.x},${w.y}`;
+      if (visibleCells[key]) {
+        this.display.draw(w.x + offsetX, w.y + offsetY, w.symbol, w.color);
       }
     });
   }
 
-  drawEnemies(offsetX,offsetY,visibleCells){
-    this.enemies.forEach(enemy=>{
-      const key=`${enemy.x},${enemy.y}`;
-      if(visibleCells[key]){
-        if(enemy.selected){
+  drawEnemies(offsetX, offsetY, visibleCells) {
+    this.enemies.forEach(enemy => {
+      const key = `${enemy.x},${enemy.y}`;
+      if (visibleCells[key]) {
+        if (enemy.selected) {
           this.display.draw(
-            enemy.x+offsetX,
-            enemy.y+offsetY,
+            enemy.x + offsetX,
+            enemy.y + offsetY,
             enemy.symbol,
             enemy.color,
             'red'
           );
         } else {
           this.display.draw(
-            enemy.x+offsetX,
-            enemy.y+offsetY,
+            enemy.x + offsetX,
+            enemy.y + offsetY,
             enemy.symbol,
             enemy.color
           );
@@ -597,94 +636,91 @@ export class Game {
     });
   }
 
-  drawPlayer(offsetX,offsetY){
+  drawPlayer(offsetX, offsetY) {
     this.display.draw(
-      this.player.x+offsetX,
-      this.player.y+offsetY,
-      '@','yellow'
+      this.player.x + offsetX,
+      this.player.y + offsetY,
+      '@', 'yellow'
     );
   }
 
-  computeFov(){
-    const visibleCells={};
-    const fov=new ROT.FOV.PreciseShadowcasting((x,y)=>{
-      return this.map[`${x},${y}`]!=='#';
+  computeFov() {
+    const visibleCells = {};
+    const fov = new ROT.FOV.PreciseShadowcasting((x, y) => {
+      return this.map[`${x},${y}`] !== '#';
     });
-    if(this.player){
-      fov.compute(this.player.x,this.player.y,5,(x,y)=>{
-        visibleCells[`${x},${y}`]=true;
+    if (this.player) {
+      fov.compute(this.player.x, this.player.y, 5, (x, y) => {
+        visibleCells[`${x},${y}`] = true;
       });
     }
     return visibleCells;
   }
 
-  // ステータス更新
-  updateStatus(){
-    if(!this.player)return;
-    document.getElementById('status').innerText=
-      `HP: ${this.player.hp}/${this.player.maxHp}  `+
-      `Floor: ${this.currentFloor}  `+
-      `Level: ${this.player.level}  `+
-      `EXP: ${this.player.exp}/${this.player.nextExp}  `+
-      `Potions: ${this.player.inventory.length}  `+
-      `Weapon: ${this.player.equippedWeapon?this.player.equippedWeapon.name:'None'}`;
+  updateStatus() {
+    if (!this.player) return;
+    document.getElementById('status').innerText =
+      `HP: ${this.player.hp}/${this.player.maxHp}  ` +
+      `Floor: ${this.currentFloor}  ` +
+      `Level: ${this.player.level}  ` +
+      `EXP: ${this.player.exp}/${this.player.nextExp}  ` +
+      `Potions: ${this.player.inventory.length}  ` +
+      `Weapon: ${this.player.equippedWeapon ? this.player.equippedWeapon.name : 'None'}`;
   }
 
-  showDialogue(msg){
+  showDialogue(msg) {
     this.messageHistory.push(msg);
-    const dialogue=document.getElementById('dialogue');
-    dialogue.innerText=msg;
-    dialogue.style.display='block';
-    setTimeout(()=>{
-      dialogue.style.display='none';
-    },2000);
+    const dialogue = document.getElementById('dialogue');
+    dialogue.innerText = msg;
+    dialogue.style.display = 'block';
+    setTimeout(() => {
+      dialogue.style.display = 'none';
+    }, 2000);
   }
 
-  showEnemyStatus(enemy){
-    const st=document.getElementById('enemy-status');
-    st.innerText=`Enemy: ${enemy.name} HP:${enemy.hp}`;
-    st.style.display='block';
+  showEnemyStatus(enemy) {
+    const st = document.getElementById('enemy-status');
+    st.innerText = `Enemy: ${enemy.name} HP:${enemy.hp}`;
+    st.style.display = 'block';
   }
 
-  clearEnemyStatus(){
-    document.getElementById('enemy-status').style.display='none';
+  clearEnemyStatus() {
+    document.getElementById('enemy-status').style.display = 'none';
   }
 
-  updateMessageHistoryOverlay(){
-    const contentEl=document.getElementById('message-history-content');
-    let html='<ul>';
-    this.messageHistory.forEach(msg=>{
-      html+=`<li>${msg}</li>`;
+  updateMessageHistoryOverlay() {
+    const contentEl = document.getElementById('message-history-content');
+    let html = '<ul>';
+    this.messageHistory.forEach(msg => {
+      html += `<li>${msg}</li>`;
     });
-    html+='</ul>';
-    contentEl.innerHTML=html;
+    html += '</ul>';
+    contentEl.innerHTML = html;
   }
 
-  toggleHelp(){
-    const helpEl=document.getElementById('help');
-    helpEl.style.display=(helpEl.style.display==='block')?'none':'block';
+  toggleHelp() {
+    const helpEl = document.getElementById('help');
+    helpEl.style.display = (helpEl.style.display === 'block') ? 'none' : 'block';
   }
 
-  toggleHistory(){
-    const overlay=document.getElementById('message-history-overlay');
-    if(overlay.style.display==='block') {
-      overlay.style.display='none';
+  toggleHistory() {
+    const overlay = document.getElementById('message-history-overlay');
+    if (overlay.style.display === 'block') {
+      overlay.style.display = 'none';
     } else {
       this.updateMessageHistoryOverlay();
-      overlay.style.display='block';
+      overlay.style.display = 'block';
     }
   }
 
-  // アニメーションをマップ座標ではなく表示座標に合わせるため、オフセットを計算
-  showAttackEffect(mapX, mapY){
-    const frames=[
-      {symbol:'!', color:'orange'},
-      {symbol:'*', color:'red'},
-      {symbol:'!', color:'yellow'}
+  showAttackEffect(mapX, mapY) {
+    const frames = [
+      { symbol: '!', color: 'orange' },
+      { symbol: '*', color: 'red' },
+      { symbol: '!', color: 'yellow' }
     ];
-    let frame=0;
+    let frame = 0;
 
-    // 現在の表示座標へのオフセットを算出
     const opts = this.display.getOptions();
     const screenW = opts.width;
     const screenH = opts.height;
@@ -693,9 +729,8 @@ export class Game {
     const offsetX = centerX - this.player.x;
     const offsetY = centerY - this.player.y;
 
-    const interval=setInterval(()=>{
-      if(frame<frames.length){
-        // mapX, mapY を表示用に変換
+    const interval = setInterval(() => {
+      if (frame < frames.length) {
         const sx = mapX + offsetX;
         const sy = mapY + offsetY;
         this.display.draw(sx, sy, frames[frame].symbol, frames[frame].color);
@@ -704,23 +739,23 @@ export class Game {
         clearInterval(interval);
         this.render();
       }
-    },100);
+    }, 100);
   }
 
-  playerAttack(enemy){
-    const bonus=this.player.equippedWeapon?this.player.equippedWeapon.bonus:0;
-    const damage=5+bonus;
+  playerAttack(enemy) {
+    const bonus = this.player.equippedWeapon ? this.player.equippedWeapon.bonus : 0;
+    const damage = 5 + bonus;
 
-    this.attackSound.currentTime=0;
-    this.attackSound.play().catch(e=>console.error(e));
-    this.showAttackEffect(enemy.x,enemy.y);
+    this.attackSound.currentTime = 0;
+    this.attackSound.play().catch(e => console.error(e));
+    this.showAttackEffect(enemy.x, enemy.y);
 
-    enemy.hp-=damage;
-    if(enemy.hp<=0){
-      this.enemies=this.enemies.filter(e=> e!==enemy);
+    enemy.hp -= damage;
+    if (enemy.hp <= 0) {
+      this.enemies = this.enemies.filter(e => e !== enemy);
       this.gainExperience(10);
-      if(enemy.drop){
-        const droppedItem={...enemy.drop,x:enemy.x,y:enemy.y};
+      if (enemy.drop) {
+        const droppedItem = { ...enemy.drop, x: enemy.x, y: enemy.y };
         this.weaponItems.push(droppedItem);
         this.showDialogue(`Enemy dropped a ${droppedItem.name}!`);
       }
@@ -728,77 +763,76 @@ export class Game {
     }
   }
 
-  enemyAttack(enemy){
-    this.attackSound.currentTime=0;
-    this.attackSound.play().catch(e=>console.error(e));
-    const msg=this.enemyDialogues[Math.floor(Math.random()*this.enemyDialogues.length)];
+  enemyAttack(enemy) {
+    this.attackSound.currentTime = 0;
+    this.attackSound.play().catch(e => console.error(e));
+    const msg = this.enemyDialogues[Math.floor(Math.random() * this.enemyDialogues.length)];
     this.enemySpeak(msg);
-    // 敵がプレイヤーを攻撃するので、アニメーションはプレイヤーの位置に合わせる
-    this.showAttackEffect(this.player.x,this.player.y);
+    this.showAttackEffect(this.player.x, this.player.y);
 
-    const damage=3;
-    this.player.hp-=damage;
-    if(this.player.hp<=0){
-      this.gameOver=true;
+    const damage = 3;
+    this.player.hp -= damage;
+    if (this.player.hp <= 0) {
+      this.gameOver = true;
     }
   }
 
-  enemySpeak(msg){
-    const dialogue=document.getElementById('dialogue');
-    dialogue.innerText=msg;
-    dialogue.style.display='block';
-    setTimeout(()=>{
-      dialogue.style.display='none';
-    },3000);
+  enemySpeak(msg) {
+    const dialogue = document.getElementById('dialogue');
+    dialogue.innerText = msg;
+    dialogue.style.display = 'block';
+    setTimeout(() => {
+      dialogue.style.display = 'none';
+    }, 3000);
   }
 
-  checkPickup(){
-    for(let i=0;i<this.healingItems.length;i++){
-      if(this.player.x===this.healingItems[i].x&&this.player.y===this.healingItems[i].y){
+  checkPickup() {
+    for (let i = 0; i < this.healingItems.length; i++) {
+      if (this.player.x === this.healingItems[i].x && this.player.y === this.healingItems[i].y) {
         this.player.inventory.push(this.healingItems[i]);
-        this.healingItems.splice(i,1);
+        this.healingItems.splice(i, 1);
         i--;
         this.showDialogue('Healing potion picked up!');
       }
     }
 
-    for(let i=0;i<this.weaponItems.length;i++){
-      if(this.player.x===this.weaponItems[i].x&&this.player.y===this.weaponItems[i].y){
+    for (let i = 0; i < this.weaponItems.length; i++) {
+      if (this.player.x === this.weaponItems[i].x && this.player.y === this.weaponItems[i].y) {
         this.player.weapons.push(this.weaponItems[i]);
-        this.weaponItems.splice(i,1);
+        this.weaponItems.splice(i, 1);
         i--;
-        const newW=this.player.weapons[this.player.weapons.length-1];
+        const newW = this.player.weapons[this.player.weapons.length - 1];
         this.showDialogue(`Picked up a ${newW.name}!`);
       }
     }
   }
 
-  useHealingItem(){
-    if(this.player.inventory.length>0){
-      const potion=this.player.inventory.shift();
-      const oldHp=this.player.hp;
-      this.player.hp=Math.min(this.player.hp+potion.amount,this.player.maxHp);
+  useHealingItem() {
+    if (this.player.inventory.length > 0) {
+      const potion = this.player.inventory.shift();
+      const oldHp = this.player.hp;
+      this.player.hp = Math.min(this.player.hp + potion.amount, this.player.maxHp);
       this.showDialogue(`Used healing potion: HP ${oldHp}->${this.player.hp}`);
     } else {
       this.showDialogue('No healing potions!');
     }
   }
 
-  equipWeapon(){
-    if(this.player.weapons.length===0){
+  equipWeapon() {
+    if (this.player.weapons.length === 0) {
       this.showDialogue('No weapons in inventory!');
       return;
     }
-    let list='';
-    for(let i=0; i<this.player.weapons.length; i++){
-      const w=this.player.weapons[i];
-      list+=`${i}: ${w.name} (+${w.bonus})\n`;
+    let list = '';
+    for (let i = 0; i < this.player.weapons.length; i++) {
+      const w = this.player.weapons[i];
+      list += `${i}: ${w.name} (+${w.bonus})\n`;
     }
-    const input=window.prompt(`Choose weapon to equip:\n${list}`,'0');
-    if(input!==null){
-      const index=parseInt(input);
-      if(!isNaN(index)&&index>=0&&index<this.player.weapons.length){
-        this.player.equippedWeapon=this.player.weapons[index];
+    const input = window.prompt(`Choose weapon to equip:\n${list}`, '0');
+    if (input !== null) {
+      const index = parseInt(input);
+      if (!isNaN(index) && index >= 0 && index < this.player.weapons.length) {
+        this.player.equippedWeapon = this.player.weapons[index];
         this.showDialogue(`Equipped ${this.player.equippedWeapon.name}!`);
       } else {
         this.showDialogue('Invalid choice!');
@@ -806,100 +840,99 @@ export class Game {
     }
   }
 
-  gainExperience(amount){
-    this.player.exp+=amount;
-    while(this.player.exp>=this.player.nextExp){
-      this.player.exp-=this.player.nextExp;
+  gainExperience(amount) {
+    this.player.exp += amount;
+    while (this.player.exp >= this.player.nextExp) {
+      this.player.exp -= this.player.nextExp;
       this.player.level++;
-      this.player.nextExp=Math.floor(this.player.nextExp*1.5);
-      this.player.maxHp+=5;
-      this.player.hp=this.player.maxHp;
+      this.player.nextExp = Math.floor(this.player.nextExp * 1.5);
+      this.player.maxHp += 5;
+      this.player.hp = this.player.maxHp;
     }
     this.updateStatus();
   }
 
-  changeFloor(direction){
-    if(!this.levels[this.currentFloor]){
-      this.levels[this.currentFloor]={};
+  changeFloor(direction) {
+    if (!this.levels[this.currentFloor]) {
+      this.levels[this.currentFloor] = {};
     }
-    this.levels[this.currentFloor].playerPos={x:this.player.x,y:this.player.y};
-    this.levels[this.currentFloor].healingItems=this.healingItems;
-    this.levels[this.currentFloor].weaponItems=this.weaponItems;
+    this.levels[this.currentFloor].playerPos = { x: this.player.x, y: this.player.y };
+    this.levels[this.currentFloor].healingItems = this.healingItems;
+    this.levels[this.currentFloor].weaponItems = this.weaponItems;
 
-    if(direction==='down'){
-      const forced=this.levels[this.currentFloor].downStairs;
+    if (direction === 'down') {
+      const forced = this.levels[this.currentFloor].downStairs;
       this.currentFloor++;
-      this.generateLevel(forced,null);
-      this.player.x=this.upStairs.x;
-      this.player.y=this.upStairs.y;
-      this.levels[this.currentFloor].playerPos={x:this.player.x,y:this.player.y};
-    } else if(direction==='up'){
-      if(this.currentFloor===1)return;
-      const forced=this.levels[this.currentFloor].upStairs;
+      this.generateLevel(forced, null);
+      this.player.x = this.upStairs.x;
+      this.player.y = this.upStairs.y;
+      this.levels[this.currentFloor].playerPos = { x: this.player.x, y: this.player.y };
+    } else if (direction === 'up') {
+      if (this.currentFloor === 1) return;
+      const forced = this.levels[this.currentFloor].upStairs;
       this.currentFloor--;
-      this.generateLevel(null,forced);
-      this.player.x=this.downStairs.x;
-      this.player.y=this.downStairs.y;
-      this.levels[this.currentFloor].playerPos={x:this.player.x,y:this.player.y};
+      this.generateLevel(null, forced);
+      this.player.x = this.downStairs.x;
+      this.player.y = this.downStairs.y;
+      this.levels[this.currentFloor].playerPos = { x: this.player.x, y: this.player.y };
     }
     this.render();
   }
 
-  toggleOverview(){
-    this.overviewMode=!this.overviewMode;
-    const fullMapContainer=document.getElementById('fullmap');
-    if(this.overviewMode){
-      if(!this.fullMapDisplay){
-        this.fullMapDisplay=new ROT.Display({
-          width:levelWidth,
-          height:levelHeight,
-          fontSize:4,
-          forceSquareRatio:true,
-          bg:'black',
-          fg:'white',
-          useHiDPI:false
+  toggleOverview() {
+    this.overviewMode = !this.overviewMode;
+    const fullMapContainer = document.getElementById('fullmap');
+    if (this.overviewMode) {
+      if (!this.fullMapDisplay) {
+        this.fullMapDisplay = new ROT.Display({
+          width: levelWidth,
+          height: levelHeight,
+          fontSize: 4,
+          forceSquareRatio: true,
+          bg: 'black',
+          fg: 'white'
         });
       }
       this.renderFullMap();
-      fullMapContainer.innerHTML='';
+      fullMapContainer.innerHTML = '';
       fullMapContainer.appendChild(this.fullMapDisplay.getContainer());
-      fullMapContainer.style.display='block';
+      fullMapContainer.style.display = 'block';
     } else {
-      fullMapContainer.style.display='none';
+      fullMapContainer.style.display = 'none';
     }
   }
 
-  renderFullMap(){
-    if(!this.fullMapDisplay)return;
+  renderFullMap() {
+    if (!this.fullMapDisplay) return;
     this.fullMapDisplay.clear();
-    for(let key in this.map){
-      const [xStr,yStr]=key.split(',');
-      const x=parseInt(xStr);
-      const y=parseInt(yStr);
-      const tile=this.map[key];
-      let color=(tile==='#')?'grey':'lightgrey';
-      this.fullMapDisplay.draw(x,y,tile,color);
+    for (let key in this.map) {
+      const [xStr, yStr] = key.split(',');
+      const x = parseInt(xStr);
+      const y = parseInt(yStr);
+      const tile = this.map[key];
+      let color = (tile === '#') ? 'grey' : 'lightgrey';
+      this.fullMapDisplay.draw(x, y, tile, color);
     }
 
-    if(this.upStairs){
-      this.fullMapDisplay.draw(this.upStairs.x,this.upStairs.y,'<','lightblue');
+    if (this.upStairs) {
+      this.fullMapDisplay.draw(this.upStairs.x, this.upStairs.y, '<', 'lightblue');
     }
-    if(this.downStairs){
-      this.fullMapDisplay.draw(this.downStairs.x,this.downStairs.y,'>','lightblue');
+    if (this.downStairs) {
+      this.fullMapDisplay.draw(this.downStairs.x, this.downStairs.y, '>', 'lightblue');
     }
 
-    this.healingItems.forEach(item=>{
-      this.fullMapDisplay.draw(item.x,item.y,'!', 'green');
+    this.healingItems.forEach(item => {
+      this.fullMapDisplay.draw(item.x, item.y, '!', 'green');
     });
-    this.weaponItems.forEach(w=>{
-      this.fullMapDisplay.draw(w.x,w.y,w.symbol,w.color);
-    });
-
-    this.enemies.forEach(enemy=>{
-      this.fullMapDisplay.draw(enemy.x,enemy.y,enemy.symbol,enemy.color);
+    this.weaponItems.forEach(w => {
+      this.fullMapDisplay.draw(w.x, w.y, w.symbol, w.color);
     });
 
-    this.fullMapDisplay.draw(this.player.x,this.player.y,'@','yellow');
+    this.enemies.forEach(enemy => {
+      this.fullMapDisplay.draw(enemy.x, enemy.y, enemy.symbol, enemy.color);
+    });
+
+    this.fullMapDisplay.draw(this.player.x, this.player.y, '@', 'yellow');
   }
 }
 

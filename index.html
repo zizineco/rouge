@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>Hengband Web版 - ステータス表示修正版</title>
 
   <!-- ROT.js v2 -->
@@ -47,6 +47,12 @@
 
   <div id="fullmap"></div>
 
+  <!-- モバイルの場合は、body に 'mobile' クラスを付与して、スタイルを安定させます -->
+  <script>
+    if (/Mobi|Android/i.test(navigator.userAgent)) {
+      document.body.classList.add('mobile');
+    }
+  </script>
   <script type="module" src="main.mjs"></script>
 </body>
 </html>

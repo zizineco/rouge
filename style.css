@@ -99,3 +99,15 @@ html, body {
   z-index: 3000;
 }
 
+/* モバイルの場合、body に mobile クラスが付与されているので、そのときだけボタンのサイズを2倍にします */
+.mobile #zoom-controls button {
+  font-size: 2.4rem !important;
+  width: 80px !important;
+  height: 80px !important;
+  margin: 0 4px !important;
+}
+
+.mobile #history-controls button {
+  font-size: 2rem !important;
+  padding: 12px 24px !important;
+}
